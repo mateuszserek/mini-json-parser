@@ -5,17 +5,49 @@ class Parser:
     lexer: Lexer
     current_position: int
     tokens: list
+    text: str
 
     def __init__(self):
         self.lexer = Lexer()
         self.current_position = 0
+        self.text = ""
+
+    def reset_parser(self):
+        self.current_position = 0
+        self.tokens = []
+        self.text = ""
+
+    def get_error_in_text(self, position, context_lines=2):
+        lines = self.text.splitlines()
+
+        line_number = self.text[:position].count("\n")
+        column = position - (self.text.rfind("\n", 0, position) + 1)
+
+        start = max(0, line_number - context_lines)
+        end = min(len(lines), line_number + context_lines + 1)
+
+        result = []
+
+        for i in range(start, end):
+            prefix = ">" if i == line_number else " "
+            result.append(f"{prefix} {i+1:3} | {lines[i]}")
+
+            if i == line_number:
+                result.append(
+                    f"      {' ' * column}^"
+                )
+
+        return "\n".join(result)
 
     def expect(self, expected_token):
         current_token = self.get_current_token()
         if current_token[0] != expected_token:
-            raise(ValueError(
-                f"Oczekiwano {expected_token}, otrzymano {current_token} na pozycji {self.current_position}"
-            ))
+            raise ValueError(
+                f"{JSON_SYNTAX_ERROR}\n\n"
+                f"{self.get_error_in_text(current_token[2])}\n"
+                f"{EXPECTED} {expected_token}\n"
+                f"{UNEXPECTED_TOKEN}: '{current_token[1]}'"
+            )
         self.current_position += 1
         return current_token[1]
     
@@ -25,7 +57,7 @@ class Parser:
         return int(num)
     
     def parse_value(self):
-        current_type, current_value = self.get_current_token()
+        current_type, current_value, _ = self.get_current_token()
 
         if current_type == LBRACKET:
             return self.parse_array()
@@ -58,15 +90,17 @@ class Parser:
                     return json_list
                 else:
                     self.expect(COMMA)
-                    if self.get_current_token()[0] == RBRACKET:
+                    current_token = self.get_current_token()
+                    if current_token[0] == RBRACKET:
                         raise(ValueError(
-                            f"Otrzymano nieoczekiwany ','  na pozycji {self.current_position}"
+                            f"{JSON_SYNTAX_ERROR}\n\n"
+                            f"{self.get_error_in_text(current_token[2])}\n"
+                            f"{EXPECTED}']'\n"
+                            f"{UNEXPECTED_TOKEN}: '{current_token[1]}'"
                         ))
                 
         except IndexError:
-            raise(ValueError(
-                "Nieoczekiwany koniec tekstu"
-            ))
+            raise(ValueError(END_OF_FILE_EXCEPTION))
         
     def parse_object(self):
         json_object = {}
@@ -77,14 +111,14 @@ class Parser:
 
         while self.current_position < len(self.tokens):
             print(self.current_position)
-            token_type, key = self.get_current_token()
+            token_type, key, _ = self.get_current_token()
             self.expect(STRING)
             self.expect(COLON)
 
             value = self.parse_value()
             json_object[key] = value 
 
-            current_token, val = self.get_current_token()
+            current_token, val, pos = self.get_current_token()
             if current_token == COMMA:
                 self.current_position += 1
                 continue
@@ -92,32 +126,39 @@ class Parser:
             if current_token == RBRACE:
                 self.current_position += 1
                 break 
-            error_string = "Oczekiwano ',' lub '}' na pozycji " + f"{self.current_position}"
-            raise(ValueError(
-                error_string
-            ))
+
+            raise ValueError(
+                f"{JSON_SYNTAX_ERROR}\n\n"
+                f"{self.get_error_in_text(pos)}\n"
+                f"{UNEXPECTED_TOKEN}: '{val}'"
+            )
+        
         return json_object
 
 
     def parse_json(self, text):
         self.tokens = self.lexer.tokenize(text)
+        self.text = text
         print(self.tokens)
 
         if not self.tokens:
-            raise ValueError("Pusty input")
+            raise ValueError(EMPTY_INPUT_EXCEPTION)
 
         first_token = self.tokens[0][0]
 
         if first_token == "LBRACE":
-            return self.parse_object()
+            result = self.parse_object()
+            self.reset_parser()
+            return result
 
         elif first_token == "LBRACKET":
-            return self.parse_array()
+            result = self.parse_array()
+            self.reset_parser()
+            return result
 
         else:
-            raise ValueError(
-                "Oczekiwano '{' lub '[' na początku JSON"
-            )
+            self.reset_parser()
+            raise ValueError(FIRST_TOKEN_EXCEPTION)
         
 parser = Parser()
 print(parser.parse_json("""
@@ -131,10 +172,21 @@ print(parser.parse_json("""
         },
         "array": [
             "key",
-            123,
+            123,"adc",
             {
                 "value": 123     
-            }            
-        ]
+            },    
+            [1,2,3,4,5]        
+        ],
+                      "val": ["asc"],
     }
 """))
+
+
+print(parser.parse_json(
+    """
+    {
+        "key": "value"
+    }
+"""
+))

@@ -31,7 +31,7 @@ class Lexer:
                     continue
                 token_value = found_token.group()
                 if token_type != SKIP:
-                    tokens.append((token_type, token_value))
+                    tokens.append((token_type, token_value, text_index))
 
                 text_index += len(token_value)
                 matched = True
