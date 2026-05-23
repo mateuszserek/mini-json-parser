@@ -14,5 +14,5 @@ FIRST_TOKEN_EXCEPTION = "Expceted '[' or '{' at the beginning of the file"
 EMPTY_INPUT_EXCEPTION = "Empty File"
 
 JSON_SYNTAX_ERROR = "JSON syntax error"
-EXPECTED = "Expected: "
-UNEXPECTED_TOKEN = "Unexpected token: "
+EXPECTED = "Expected token: "
+UNEXPECTED_TOKEN = "Unexpected token"

@@ -17,7 +17,20 @@ class Parser:
         self.tokens = []
         self.text = ""
 
-    def get_error_in_text(self, position, context_lines=2):
+    def prepare_exception_message(self, position, expected_token, unexpected_token):
+        error_text = self.get_error_in_text(position)
+
+        lines = [
+            JSON_SYNTAX_ERROR,
+            "",
+            error_text,
+            f"{EXPECTED}: {expected_token}",
+            f"{UNEXPECTED_TOKEN}: {unexpected_token}"
+        ]
+
+        return "\n".join(lines)
+
+    def get_error_in_text(self, position, context_lines=4):
         lines = self.text.splitlines()
 
         line_number = self.text[:position].count("\n")
@@ -43,10 +56,7 @@ class Parser:
         current_token = self.get_current_token()
         if current_token[0] != expected_token:
             raise ValueError(
-                f"{JSON_SYNTAX_ERROR}\n\n"
-                f"{self.get_error_in_text(current_token[2])}\n"
-                f"{EXPECTED} {expected_token}\n"
-                f"{UNEXPECTED_TOKEN}: '{current_token[1]}'"
+                self.prepare_exception_message(current_token[2], expected_token, current_token[1])
             )
         self.current_position += 1
         return current_token[1]
@@ -81,6 +91,7 @@ class Parser:
             json_list = []
             self.expect(LBRACKET)
             if self.get_current_token()[0] == RBRACKET:
+                self.current_position += 1
                 return json_list
             
             while self.current_position < len(self.tokens):
@@ -92,101 +103,66 @@ class Parser:
                     self.expect(COMMA)
                     current_token = self.get_current_token()
                     if current_token[0] == RBRACKET:
-                        raise(ValueError(
-                            f"{JSON_SYNTAX_ERROR}\n\n"
-                            f"{self.get_error_in_text(current_token[2])}\n"
-                            f"{EXPECTED}']'\n"
-                            f"{UNEXPECTED_TOKEN}: '{current_token[1]}'"
-                        ))
-                
+                        raise ValueError (
+                            self.prepare_exception_message(current_token[2], "]", current_token[1])
+                        )   
+                    
         except IndexError:
             raise(ValueError(END_OF_FILE_EXCEPTION))
         
     def parse_object(self):
-        json_object = {}
-        self.expect(LBRACE)
-        if self.get_current_token()[0] == RBRACE:
-            self.current_position += 1
+        try:
+            json_object = {}
+            self.expect(LBRACE)
+            if self.get_current_token()[0] == RBRACE:
+                self.current_position += 1
+                return json_object
+
+            while self.current_position < len(self.tokens):
+                print(self.current_position)
+                token_type, key, _ = self.get_current_token()
+                self.expect(STRING)
+                self.expect(COLON)
+
+                value = self.parse_value()
+                json_object[key] = value 
+
+                current_token, val, pos = self.get_current_token()
+                if current_token == COMMA:
+                    self.current_position += 1
+                    continue
+
+                if current_token == RBRACE:
+                    self.current_position += 1
+                    break 
+
+                raise ValueError(
+                    f"{JSON_SYNTAX_ERROR}\n\n"
+                    f"{self.get_error_in_text(pos)}\n"
+                    f"{UNEXPECTED_TOKEN}: '{val}'"
+                )
+            
             return json_object
-
-        while self.current_position < len(self.tokens):
-            print(self.current_position)
-            token_type, key, _ = self.get_current_token()
-            self.expect(STRING)
-            self.expect(COLON)
-
-            value = self.parse_value()
-            json_object[key] = value 
-
-            current_token, val, pos = self.get_current_token()
-            if current_token == COMMA:
-                self.current_position += 1
-                continue
-
-            if current_token == RBRACE:
-                self.current_position += 1
-                break 
-
-            raise ValueError(
-                f"{JSON_SYNTAX_ERROR}\n\n"
-                f"{self.get_error_in_text(pos)}\n"
-                f"{UNEXPECTED_TOKEN}: '{val}'"
-            )
-        
-        return json_object
-
+        except IndexError:
+            raise ValueError(END_OF_FILE_EXCEPTION)
 
     def parse_json(self, text):
         self.tokens = self.lexer.tokenize(text)
         self.text = text
         print(self.tokens)
+        result = {}
+        first_token = self.tokens[0][0]
 
         if not self.tokens:
             raise ValueError(EMPTY_INPUT_EXCEPTION)
-
-        first_token = self.tokens[0][0]
+        
+        if not first_token in [LBRACE, LBRACKET]:
+            raise ValueError(FIRST_TOKEN_EXCEPTION)
 
         if first_token == "LBRACE":
             result = self.parse_object()
-            self.reset_parser()
-            return result
-
         elif first_token == "LBRACKET":
             result = self.parse_array()
-            self.reset_parser()
-            return result
 
-        else:
-            self.reset_parser()
-            raise ValueError(FIRST_TOKEN_EXCEPTION)
-        
-parser = Parser()
-print(parser.parse_json("""
-    {
-        "name": "Jan",
-        "age": 2,
-        "address": {
-            "city": "Szczecin",
-            "street": "Mickiewicza",
-            "number": 12
-        },
-        "array": [
-            "key",
-            123,"adc",
-            {
-                "value": 123     
-            },    
-            [1,2,3,4,5]        
-        ],
-                      "val": ["asc"],
-    }
-"""))
-
-
-print(parser.parse_json(
-    """
-    {
-        "key": "value"
-    }
-"""
-))
+        self.reset_parser()
+        return result

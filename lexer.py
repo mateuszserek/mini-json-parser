@@ -30,6 +30,7 @@ class Lexer:
                 if not found_token:
                     continue
                 token_value = found_token.group()
+                
                 if token_type != SKIP:
                     tokens.append((token_type, token_value, text_index))
 
