@@ -1,30 +1,174 @@
 import pprint 
 from parser import Parser
+import json
 
 pp = pprint.PrettyPrinter(indent=4)
 
 parser = Parser()
-json_dict = parser.parse_json("""
-    {
-        "name": "Jan",
-        "age": 2,
-        "address": {
-            "city": "Szczecin",
-            "street": "Mickiewicza",
-            "number": 12
-        },
-        "array": [
-            "key",
-            123,"adc",
-            {
-                "value": 123,
-                "arr": []
-            },    
-            [1,2,3,4,5]        
-        ],
-                      "val": [1, 2, "avc"],
-        "a": 123
-        }
-""")
 
-pp.pprint(json_dict)
+tests = [
+    """
+{}
+""",
+
+    """
+[]
+""",
+
+    """
+{
+  "a": {
+    "b": {
+      "c": {
+        "d": {
+          "e": [1]
+        }
+      }
+    }
+  }
+}
+""",
+
+    """
+{
+    
+    
+    "a"    :     1,
+    
+    "b" : [ 1 , 2 , 3 ]
+    
+}
+""",
+
+    """
+[[], [[]], [[[]]]]
+""",
+
+    """
+{
+  "a": "",
+  "b": ["", "", ""]
+}
+""",
+
+    """
+{
+  "a": -1,
+  "b": -12.34,
+  "c": 0.001,
+  "d": 999999999
+}
+""",
+
+    """
+[
+  {"a": 1},
+  {"b": 2},
+  {"c": 3}
+]
+""",
+
+    """
+[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+""",
+
+    """
+{
+  "a": [1, 2, {"x": 3}],
+  "b": {
+    "c": [4, {"d": 5}]
+  }
+}
+""",
+
+    # INVALID TESTS
+
+    """
+{
+  "a": 1,
+}
+""",
+
+    """
+[1,2,3,]
+""",
+
+    """
+{
+  "a": 1
+  "b": 2
+}
+""",
+
+    """
+{
+  "a" 1
+}
+""",
+
+    """
+{
+  "a": 1
+""",
+
+    """
+[1,2,3
+""",
+
+    """
+{
+  "a": "test
+}
+""",
+
+    """
+[1,,2]
+""",
+
+    """
+,
+""",
+
+    """
+{
+  "a": 01
+}
+""",
+
+    """
+{
+  "a": -
+}
+""",
+
+    """
+{
+  "a": 1.
+}
+""",
+
+    """
+{
+  "a": .5
+}
+""",
+
+    """
+{
+  test
+}
+""",
+
+    """
+{} {}
+"""
+]
+
+for i, test in enumerate(tests):
+    try:
+        print(f"\n####### TEST {i}: ######\n")
+        print(json.dumps(parser.parse_json(test), sort_keys=True, indent=4))
+    except ValueError as e:
+        print(e)
+    except SyntaxError as e:
+        print(e)
