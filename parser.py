@@ -18,48 +18,27 @@ class Parser:
         self.text = ""
 
     def prepare_exception_message(self, position, expected_token, unexpected_token, exception_type = JSON_SYNTAX_ERROR):
-        error_text = self.get_error_in_text(position)
+        return build_error_message(
+            self.text,
+            position,
+            expected=expected_token,
+            unexpected=unexpected_token,
+            title=exception_type
+        )
 
-        lines = [
-            exception_type,
-            "",
-            error_text,
-            f"{UNEXPECTED_TOKEN}: '{unexpected_token}'",
-            f"{EXPECTED}: {expected_token}"
-        ]
-
-        return "\n".join(lines)
-
-    def get_error_in_text(self, position, context_lines=4):
-        lines = self.text.splitlines()
-
-        line_number = self.text[:position].count("\n")
-        column = position - (self.text.rfind("\n", 0, position) + 1)
-
-        start = max(0, line_number - context_lines)
-        end = min(len(lines), line_number + context_lines + 1)
-
-        result = []
-
-        for i in range(start, end):
-            prefix = ">" if i == line_number else " "
-            result.append(f"{prefix} {i+1:3} | {lines[i]}")
-
-            if i == line_number:
-                result.append(
-                    f"        {' ' * column}^"
-                )
-
-        return "\n".join(result)
+    def get_token_display_value(self, token_type, token_value):
+        if token_type == EOF:
+            return TOKEN_DICT[EOF]
+        return token_value
 
     def expect(self, expected_token):
         current_token = self.get_current_token()
         if current_token[0] != expected_token:
-            raise ValueError(
+            raise JsonParseError(
                 self.prepare_exception_message(
                     current_token[2],
                     TOKEN_DICT[expected_token],
-                    current_token[1],
+                    self.get_token_display_value(current_token[0], current_token[1]),
                     UNEXPECTED_TOKEN
                 )
             )
@@ -88,11 +67,11 @@ class Parser:
             self.current_position += 1
             return self.convert_number(current_value)
         
-        raise ValueError (
+        raise JsonParseError (
             self.prepare_exception_message(
                 current_position,
                 JSON_VALUE,
-                current_value,
+                self.get_token_display_value(current_type, current_value),
                 EXPECTED_JSON_VALUE
             )
         )
@@ -118,32 +97,38 @@ class Parser:
                     return result
 
                 if token_type != COMMA:
-                    raise ValueError(
+                    raise JsonParseError(
                         self.prepare_exception_message(
                             position,
                             "',' or ']'",
-                            token_value
+                            self.get_token_display_value(token_type, token_value)
                         )
                     )
                 self.current_position += 1
 
-                if self.current_position >= len(self.tokens):
-                    raise ValueError(END_OF_FILE_EXCEPTION)
-
                 next_type, next_value, next_pos = self.get_current_token()
 
                 if next_type == RBRACKET:
-                    raise ValueError(
-                        self.prepare_exception_message(
+                    raise JsonParseError(
+                        build_error_message(
+                            self.text,
                             next_pos,
-                            JSON_VALUE,
-                            "]",
-                            JSON_SYNTAX_ERROR
+                            expected=JSON_VALUE,
+                            unexpected=next_value,
+                            hint="Trailing comma is not allowed in a JSON array"
                         )
                     )
 
         except IndexError:
-            raise ValueError(END_OF_FILE_EXCEPTION)
+            raise JsonParseError(
+                build_error_message(
+                    self.text,
+                    len(self.text),
+                    expected="']'",
+                    unexpected=TOKEN_DICT[EOF],
+                    title=END_OF_FILE_EXCEPTION
+                )
+            )
         
     def parse_object(self):
         try:
@@ -164,39 +149,91 @@ class Parser:
                 current_token, val, pos = self.get_current_token()
                 if current_token == COMMA:
                     self.current_position += 1
+                    next_token, next_val, next_pos = self.get_current_token()
+                    if next_token == RBRACE:
+                        raise JsonParseError(
+                            build_error_message(
+                                self.text,
+                                next_pos,
+                                expected=STRING,
+                                unexpected=next_val,
+                                hint="Trailing comma is not allowed in a JSON object"
+                            )
+                        )
                     continue
 
                 if current_token == RBRACE:
                     self.current_position += 1
                     break 
 
-                raise ValueError(
+                raise JsonParseError(
                     self.prepare_exception_message(
-                        pos, "',' or '}'", val, EXPECTED_JSON_VALUE
+                        pos,
+                        "',' or '}'",
+                        self.get_token_display_value(current_token, val),
+                        EXPECTED_JSON_VALUE
                     )
                 )
             
             return json_object
         except IndexError:
-            raise ValueError(END_OF_FILE_EXCEPTION)       
+            raise JsonParseError(
+                build_error_message(
+                    self.text,
+                    len(self.text),
+                    expected="'}'",
+                    unexpected=TOKEN_DICT[EOF],
+                    title=END_OF_FILE_EXCEPTION
+                )
+            )
 
     def parse_json(self, text):
         try:
-            self.tokens = self.lexer.tokenize(text)
             self.text = text
+            self.tokens = self.lexer.tokenize(text)
             result = {}
-            first_token = self.tokens[0][0]
 
-            if not self.tokens:
-                raise ValueError(EMPTY_INPUT_EXCEPTION)
+            if len(self.tokens) == 1 and self.tokens[0][0] == EOF:
+                raise JsonParseError(
+                    build_error_message(
+                        self.text,
+                        self.tokens[0][2],
+                        expected="'{' or '['",
+                        unexpected=TOKEN_DICT[EOF],
+                        title=EMPTY_INPUT_EXCEPTION
+                    )
+                )
+
+            first_token = self.tokens[0][0]
             
             if not first_token in [LBRACE, LBRACKET]:
-                raise ValueError(FIRST_TOKEN_EXCEPTION)
+                first_token_type, first_token_value, first_token_position = self.tokens[0]
+                raise JsonParseError(
+                    build_error_message(
+                        self.text,
+                        first_token_position,
+                        expected="'{' or '['",
+                        unexpected=self.get_token_display_value(first_token_type, first_token_value),
+                        title=FIRST_TOKEN_EXCEPTION
+                    )
+                )
 
-            if first_token == "LBRACE":
+            if first_token == LBRACE:
                 result = self.parse_object()
-            elif first_token == "LBRACKET":
+            elif first_token == LBRACKET:
                 result = self.parse_array()
+
+            current_token_type, current_token_value, current_token_position = self.get_current_token()
+            if current_token_type != EOF:
+                raise JsonParseError(
+                    build_error_message(
+                        self.text,
+                        current_token_position,
+                        expected=TOKEN_DICT[EOF],
+                        unexpected=self.get_token_display_value(current_token_type, current_token_value),
+                        title=EXTRA_CONTENT_EXCEPTION
+                    )
+                )
 
             return result
         

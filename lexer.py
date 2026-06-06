@@ -17,32 +17,9 @@ class Lexer:
             SKIP: r"\s+"
         }
 
-    def get_error_in_text(self, text, position, context_lines=2):
-        lines = text.splitlines()
-        line_number = text[:position].count("\n")
-        column = position - (text.rfind("\n", 0, position) + 1)
-        start = max(0, line_number - context_lines)
-        end = min(len(lines), line_number + context_lines + 1)
-
-        result = []
-
-        for i in range(start, end):
-            prefix = ">" if i == line_number else " "
-
-            result.append(
-                f"{prefix} {i+1:3} | {lines[i]}"
-            )
-
-            if i == line_number:
-                result.append(
-                    f"        {' ' * column}^"
-                )
-
-        return "\n".join(result)
-
     def tokenize(self, text: str) -> list:
         if type(text) != str:
-            raise("text must be string")
+            raise TypeError("text must be string")
         
         tokens = []
         text_index = 0
@@ -62,24 +39,23 @@ class Lexer:
                 break
             if not matched:
                 if text[text_index] == '"':
-                    raise SyntaxError(
-                        "\n".join([
-                            JSON_SYNTAX_ERROR,
-                            "",
-                            self.get_error_in_text(text, text_index),
-                            "Unterminated string literal",
-                            "",
-                            'Expected closing quote: "'
-                        ])
+                    raise JsonParseError(
+                        build_error_message(
+                            text,
+                            text_index,
+                            expected='closing quote: "',
+                            unexpected=text[text_index],
+                            hint="Unterminated string literal"
+                        )
                     )
 
-                raise SyntaxError(
-                    "\n".join([
-                        JSON_SYNTAX_ERROR,
-                        "",
-                        self.get_error_in_text(text, text_index),
-                        "",
-                        f"Unexpected character: '{text[text_index]}'"
-                    ])
+                raise JsonParseError(
+                    build_error_message(
+                        text,
+                        text_index,
+                        unexpected=text[text_index],
+                        hint="Remove this character or replace it with a valid JSON token"
+                    )
                 )
+        tokens.append((EOF, EOF, len(text)))
         return tokens
