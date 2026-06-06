@@ -6,6 +6,9 @@ LBRACKET = "LBRACKET"
 RBRACKET = "RBRACKET"
 COLON = "COLON"
 COMMA = "COMMA"
+TRUE = "TRUE"
+FALSE = "FALSE"
+NULL = "NULL"
 SKIP = "SKIP"
 EOF = "EOF"
 
@@ -18,6 +21,9 @@ TOKEN_DICT = {
     RBRACKET: "']'",
     COLON: "':'",
     COMMA: "','",
+    TRUE: "true",
+    FALSE: "false",
+    NULL: "null",
     EOF: "end of file"
 }
 
@@ -25,7 +31,7 @@ END_OF_FILE_EXCEPTION = "Unexpected end of file"
 FIRST_TOKEN_EXCEPTION = "Expected '[' or '{' at the beginning of the file"
 EMPTY_INPUT_EXCEPTION = "Empty File"
 EXPECTED_JSON_VALUE = "Expected a JSON value"
-JSON_VALUE = "STRING, NUMBER, OBJECT or ARRAY"
+JSON_VALUE = "STRING, NUMBER, OBJECT, ARRAY, true, false or null"
 JSON_SYNTAX_ERROR = "JSON syntax error"
 EXPECTED = "Expected token"
 UNEXPECTED_TOKEN = "Unexpected token"

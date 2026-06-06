@@ -66,6 +66,18 @@ class Parser:
         if current_type == NUMBER:
             self.current_position += 1
             return self.convert_number(current_value)
+
+        if current_type == TRUE:
+            self.current_position += 1
+            return True
+
+        if current_type == FALSE:
+            self.current_position += 1
+            return False
+
+        if current_type == NULL:
+            self.current_position += 1
+            return None
         
         raise JsonParseError (
             self.prepare_exception_message(

@@ -10,10 +10,11 @@ Główne funkcjonalności parsera:
 - rozpoznawanie tablic JSON,
 - obsługa zagnieżdżonych obiektów i tablic,
 - obsługa napisów oraz liczb całkowitych i zmiennoprzecinkowych,
+- obsługa wartości logicznych `true`, `false` oraz wartości pustej `null`,
 - ignorowanie białych znaków,
 - zgłaszanie błędów składniowych wraz z pozycją problemu w tekście.
 
-Implementacja obsługuje podzbiór formatu JSON: obiekty, tablice, napisy i liczby. W aktualnej wersji nie zdefiniowano tokenów dla wartości `true`, `false`, `null` ani sekwencji escape w napisach.
+Implementacja obsługuje podzbiór formatu JSON: obiekty, tablice, napisy, liczby, wartości logiczne oraz `null`. W aktualnej wersji nie zdefiniowano sekwencji escape w napisach.
 
 ## Formalna gramatyka i tokeny
 
@@ -31,6 +32,9 @@ Lekser rozpoznaje następujące tokeny:
 | `RBRACKET` | `\]` | nawias kwadratowy zamykający `]` |
 | `COLON` | `:` | dwukropek |
 | `COMMA` | `,` | przecinek |
+| `TRUE` | `true` | wartość logiczna prawdy |
+| `FALSE` | `false` | wartość logiczna fałszu |
+| `NULL` | `null` | wartość pusta |
 | `SKIP` | `\s+` | białe znaki pomijane przez lekser |
 
 ### Gramatyka
@@ -39,7 +43,7 @@ Symbol startowy: `json`.
 
 Nieterminale: `json`, `value`, `object`, `members`, `member`, `array`, `elements`.
 
-Terminale: `STRING`, `NUMBER`, `{`, `}`, `[`, `]`, `:`, `,`.
+Terminale: `STRING`, `NUMBER`, `true`, `false`, `null`, `{`, `}`, `[`, `]`, `:`, `,`.
 
 Gramatyka w notacji EBNF:
 
@@ -48,6 +52,9 @@ json     ::= object | array
 
 value    ::= STRING
            | NUMBER
+           | "true"
+           | "false"
+           | "null"
            | object
            | array
 
@@ -84,7 +91,7 @@ cd /Users/mateuszserek/Desktop/json_parser
 python3 tests.py
 ```
 
-Projekt korzysta wyłącznie z bibliotek standardowych Pythona (`re`, `json`, `pprint`), dlatego nie wymaga instalowania zewnętrznych zależności przez `pip`.
+Projekt korzysta wyłącznie z bibliotek standardowych Pythona (`re`, `json`), dlatego nie wymaga instalowania zewnętrznych zależności przez `pip`.
 
 Parser można też wykorzystać bezpośrednio w innym skrypcie:
 
@@ -210,7 +217,7 @@ JSON syntax error
 >   1 | [1,2,3,]
             ^
 Unexpected token: ']'
-Expected token: STRING, NUMBER, OBJECT or ARRAY
+Expected token: STRING, NUMBER, OBJECT, ARRAY, true, false or null
 ```
 
 Parser wskazuje miejsce błędu znakiem `^`, pokazuje nieoczekiwany token oraz informuje, jakiego typu wartości oczekiwał w tym miejscu.

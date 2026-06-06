@@ -1,12 +1,9 @@
-import pprint 
 from parser import Parser
 import json
 
-pp = pprint.PrettyPrinter(indent=4)
-
 parser = Parser()
 
-tests = [
+valid_tests = [
     """
 {}
 """,
@@ -81,8 +78,43 @@ tests = [
 }
 """,
 
-    # INVALID TESTS
+    """
+{
+  "active": true,
+  "deleted": false,
+  "metadata": null,
+  "items": [true, false, null]
+}
+""",
 
+    """
+[true, false, null, {"nested": [null, true, false]}]
+""",
+
+    """
+{
+  "featureFlags": {
+    "login": true,
+    "payments": false,
+    "legacyMode": null
+  },
+  "users": [
+    {"name": "Ada", "active": true},
+    {"name": "Bob", "active": false, "lastLogin": null}
+  ]
+}
+""",
+
+    """
+{
+  "emptyArray": [],
+  "emptyObject": {},
+  "mixed": [1, "text", true, false, null, {"ok": true}]
+}
+"""
+]
+
+invalid_tests = [
     """
 {
   "a": 1,
@@ -161,14 +193,70 @@ tests = [
 
     """
 {} {}
+""",
+
+    """
+{
+  "active": True
+}
+""",
+
+    """
+{
+  "deleted": False
+}
+""",
+
+    """
+{
+  "metadata": None
+}
+""",
+
+    """
+{
+  "active": tru
+}
+""",
+
+    """
+{
+  "values": [true false]
+}
+""",
+
+    """
+{
+  "values": [null,]
+}
+""",
+
+    """
+{
+  "flag": true,
+  "missing": null
+  "next": false
+}
 """
 ]
 
-for i, test in enumerate(tests):
+print("\n================ VALID TESTS - SHOULD PASS ================\n")
+
+for i, test in enumerate(valid_tests):
     try:
-        print(f"\n####### TEST {i}: ######\n")
+        print(f"\n####### VALID TEST {i}: ######\n")
         print(json.dumps(parser.parse_json(test), sort_keys=True, indent=4))
     except ValueError as e:
+        print("UNEXPECTED ERROR:")
         print(e)
-    except SyntaxError as e:
+
+print("\n================ INVALID TESTS - SHOULD SHOW ERRORS ================\n")
+
+for i, test in enumerate(invalid_tests):
+    try:
+        print(f"\n####### INVALID TEST {i}: ######\n")
+        result = parser.parse_json(test)
+        print("UNEXPECTED SUCCESS:")
+        print(json.dumps(result, sort_keys=True, indent=4))
+    except ValueError as e:
         print(e)

@@ -14,6 +14,9 @@ class Lexer:
             RBRACKET: r"\]",
             COLON: r":",
             COMMA: r",",
+            TRUE: r"true",
+            FALSE: r"false",
+            NULL: r"null",
             SKIP: r"\s+"
         }
 
